@@ -10,6 +10,9 @@
 
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+// HK
+#include <linux/notifier.h>
+// HK
 
 #define DRV_NAME "mrf-pci"
 
@@ -35,6 +38,15 @@ MODULE_PARM_DESC(interfaceversion, "User space interface version");
 static unsigned modparam_usemsi = 1;
 module_param_named(use_msi, modparam_usemsi, uint, 0444);
 MODULE_PARM_DESC(use_msi, "Use MSI if present (default 1, yes)");
+
+// HK
+static ATOMIC_NOTIFIER_HEAD(evr_notifier_list);
+void evr_register_notify(struct notifier_block *nb)
+{
+    atomic_notifier_chain_register(&evr_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(evr_register_notify);
+// HK
 
 /************************ PCI Device and vendor IDs ****************/
 
@@ -332,6 +344,12 @@ mrf_handler_plx(int irq, struct uio_info *info)
             iowrite32be(0, plx + PCIMIE);
             wmb();
             oops = val = ioread32(plx + PCIMIE);
+
+            // HK
+            // TODO: check for databuf IRQ, copy the contents to local buffer, send
+            //       notification
+            atomic_notifier_call_chain(&evr_notifier_list, 1, NULL);
+            // HK
         }
     }
         break;
